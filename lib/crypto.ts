@@ -1,11 +1,19 @@
 /**
  * Web Crypto API AES-256-GCM encryption/decryption utilities.
  *
- * This implementation uses Web Crypto API (globalThis.crypto.subtle) instead of
- * Node.js native 'crypto' module. This ensures 100% compatibility with Vercel's Edge
- * Runtime (which NextAuth middleware runs on), eliminating the "A Node.js module is loaded
- * which is not supported in the Edge Runtime" crash.
+ * This implementation resolves the crypto API dynamically to support Node.js 18,
+ * Node.js 20+, and Vercel's Edge Runtime seamlessly.
  */
+
+// Dynamically resolve the Web Crypto API to prevent ReferenceErrors on Node 18
+const webCrypto = (() => {
+  if (typeof globalThis !== "undefined" && globalThis.crypto) {
+    return globalThis.crypto;
+  }
+  // Fallback for Node.js 18 (bypasses Next.js static bundler analysis)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return require("crypto").webcrypto;
+})();
 
 // Helper to convert ArrayBuffer to Base64 string safely in any JS environment
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -40,9 +48,9 @@ async function getCryptoKey(): Promise<CryptoKey> {
   const rawKey = encoder.encode(keyText);
 
   // Hash the variable-length password to get a secure 256-bit key
-  const hash = await crypto.subtle.digest("SHA-256", rawKey);
+  const hash = await webCrypto.subtle.digest("SHA-256", rawKey);
 
-  return await crypto.subtle.importKey(
+  return await webCrypto.subtle.importKey(
     "raw",
     hash,
     { name: "AES-GCM" },
@@ -61,9 +69,9 @@ export async function encrypt(text: string): Promise<string> {
   const rawData = encoder.encode(text);
 
   // Standard 12-byte IV for AES-GCM
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const iv = webCrypto.getRandomValues(new Uint8Array(12));
 
-  const ciphertext = await crypto.subtle.encrypt(
+  const ciphertext = await webCrypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     key,
     rawData
@@ -88,7 +96,7 @@ export async function decrypt(encryptedText: string): Promise<string> {
   const iv = combined.slice(0, 12);
   const ciphertext = combined.slice(12);
 
-  const decrypted = await crypto.subtle.decrypt(
+  const decrypted = await webCrypto.subtle.decrypt(
     { name: "AES-GCM", iv },
     key,
     ciphertext
@@ -103,7 +111,7 @@ export async function decrypt(encryptedText: string): Promise<string> {
  */
 export function generateSecret(bytes = 32): string {
   const arr = new Uint8Array(bytes);
-  crypto.getRandomValues(arr);
+  webCrypto.getRandomValues(arr);
   return Array.from(arr)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
