@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   let availableRepos: { full_name: string; description: string | null; stargazers_count: number }[] = [];
   try {
-    const accessToken = decrypt(user.access_token);
+    const accessToken = await decrypt(user.access_token);
     const githubRepos = await listUserRepos(accessToken);
     const connectedNames = new Set((connectedRepos ?? []).map((r) => r.repo_full_name));
     availableRepos = githubRepos
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const accessToken = decrypt(user.access_token);
+  const accessToken = await decrypt(user.access_token);
   const webhookSecret = generateSecret(32);
   const webhookUrl = `${APP_URL}/api/webhook/github`;
 
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     user_id: userId,
     repo_full_name: repoFullName,
     webhook_id: webhookId,
-    webhook_secret: encrypt(webhookSecret),
+    webhook_secret: await encrypt(webhookSecret),
     active: true,
   });
 
@@ -177,7 +177,7 @@ export async function DELETE(req: NextRequest) {
   if (user && repoRow.webhook_id) {
     const [owner, repo] = repoFullName.split("/");
     try {
-      await deleteRepoWebhook(decrypt(user.access_token), owner, repo, repoRow.webhook_id);
+      await deleteRepoWebhook(await decrypt(user.access_token), owner, repo, repoRow.webhook_id);
     } catch (err) {
       console.warn("Failed to delete GitHub webhook (may already be gone):", err);
     }

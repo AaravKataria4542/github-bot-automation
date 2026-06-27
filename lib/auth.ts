@@ -47,7 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               login: githubProfile.login,
               name: githubProfile.name ?? null,
               avatar_url: githubProfile.avatar_url ?? null,
-              access_token: encrypt(account.access_token),
+              access_token: await encrypt(account.access_token),
               updated_at: new Date().toISOString(),
             },
             { onConflict: "id" }

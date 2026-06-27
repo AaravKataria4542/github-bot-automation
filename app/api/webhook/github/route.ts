@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 5. Verify HMAC-SHA256 signature ───────────────────────────────────────
-  const webhookSecret = decrypt(repoRow.webhook_secret as string);
+  const webhookSecret = await decrypt(repoRow.webhook_secret as string);
 
   if (!verifyGitHubSignature(rawBody, signature, webhookSecret)) {
     console.warn(`Invalid signature for delivery ${deliveryId} on ${repoFullName}`);
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 9. Process event (rules engine) ───────────────────────────────────────
-  const userAccessToken = decrypt(
+  const userAccessToken = await decrypt(
     (repoRow.users as { access_token: string }).access_token
   );
 

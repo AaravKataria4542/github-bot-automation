@@ -1,60 +1,110 @@
-import crypto from "crypto";
+/**
+ * Web Crypto API AES-256-GCM encryption/decryption utilities.
+ *
+ * This implementation uses Web Crypto API (globalThis.crypto.subtle) instead of
+ * Node.js native 'crypto' module. This ensures 100% compatibility with Vercel's Edge
+ * Runtime (which NextAuth middleware runs on), eliminating the "A Node.js module is loaded
+ * which is not supported in the Edge Runtime" crash.
+ */
 
-const ALGORITHM = "aes-256-gcm";
-const IV_LENGTH = 16;
-const TAG_LENGTH = 16;
-const SALT = "github-bot-v1-salt";
+// Helper to convert ArrayBuffer to Base64 string safely in any JS environment
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
 
-function getKey(): Buffer {
-  const encryptionKey = process.env.ENCRYPTION_KEY;
-  if (!encryptionKey) {
+// Helper to convert Base64 string to Uint8Array safely in any JS environment
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// Helper to derive a 256-bit AES-GCM key from ENCRYPTION_KEY using SHA-256
+async function getCryptoKey(): Promise<CryptoKey> {
+  const keyText = process.env.ENCRYPTION_KEY;
+  if (!keyText) {
     throw new Error("ENCRYPTION_KEY environment variable is not set");
   }
-  return crypto.scryptSync(encryptionKey, SALT, 32);
+
+  const encoder = new TextEncoder();
+  const rawKey = encoder.encode(keyText);
+
+  // Hash the variable-length password to get a secure 256-bit key
+  const hash = await crypto.subtle.digest("SHA-256", rawKey);
+
+  return await crypto.subtle.importKey(
+    "raw",
+    hash,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt", "decrypt"]
+  );
 }
 
 /**
  * Encrypts a plaintext string using AES-256-GCM.
- * Output format: base64(iv + authTag + ciphertext)
+ * Output format: base64(iv + ciphertext)
  */
-export function encrypt(text: string): string {
-  const key = getKey();
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+export async function encrypt(text: string): Promise<string> {
+  const key = await getCryptoKey();
+  const encoder = new TextEncoder();
+  const rawData = encoder.encode(text);
 
-  const encrypted = Buffer.concat([
-    cipher.update(text, "utf8"),
-    cipher.final(),
-  ]);
-  const tag = cipher.getAuthTag();
+  // Standard 12-byte IV for AES-GCM
+  const iv = crypto.getRandomValues(new Uint8Array(12));
 
-  // Concatenate: iv (16) + tag (16) + ciphertext
-  return Buffer.concat([iv, tag, encrypted]).toString("base64");
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    rawData
+  );
+
+  // Combine IV and Ciphertext into one array
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+
+  return arrayBufferToBase64(combined.buffer);
 }
 
 /**
  * Decrypts a base64-encoded AES-256-GCM ciphertext.
  */
-export function decrypt(encryptedText: string): string {
-  const key = getKey();
-  const data = Buffer.from(encryptedText, "base64");
+export async function decrypt(encryptedText: string): Promise<string> {
+  const key = await getCryptoKey();
+  const combined = base64ToUint8Array(encryptedText);
 
-  const iv = data.subarray(0, IV_LENGTH);
-  const tag = data.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH);
-  const encrypted = data.subarray(IV_LENGTH + TAG_LENGTH);
+  // Extract standard 12-byte IV
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(tag);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext
+  );
 
-  return Buffer.concat([
-    decipher.update(encrypted),
-    decipher.final(),
-  ]).toString("utf8");
+  const decoder = new TextDecoder();
+  return decoder.decode(decrypted);
 }
 
 /**
  * Generates a cryptographically secure random hex string for webhook secrets.
  */
 export function generateSecret(bytes = 32): string {
-  return crypto.randomBytes(bytes).toString("hex");
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
