@@ -1,247 +1,208 @@
 # GitBot — GitHub Automation Bot
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://github-bot-automation-np17.vercel.app)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres-green?logo=supabase)](https://supabase.com)
+[![Gemini AI](https://img.shields.io/badge/Gemini-2.0%20Flash-blue?logo=google)](https://aistudio.google.com)
 
-An event-driven GitHub automation bot that reacts to repository activity — labeling issues, posting comments, sending Slack alerts, and AI-triaging with Gemini 2.0 Flash — all driven by configurable rules.
+An event-driven GitHub automation bot that reacts to repository activity — labeling issues, posting smart comments, sending Slack alerts, and AI-triaging with Gemini 2.0 Flash — all driven by configurable rules.
 
-**Live URL:** `https://github-bot-automation-np17.vercel.app`
+**Live URL:** https://github-bot-automation-np17.vercel.app
+
+---
+
+## What It Does
+
+GitBot watches your GitHub repo and reacts automatically:
+
+1. Someone opens an issue titled **"bug: login not working"**
+2. GitBot instantly:
+   - 🏷️ Adds the `bug` label
+   - 💬 Posts a smart comment on the issue
+   - 📣 Sends a Slack alert to your channel
+   - 🤖 Gemini AI analyzes priority, suggests labels, summarizes the issue
+
+All without you doing anything.
 
 ---
 
 ## Features
 
-- 🔐 **GitHub OAuth sign-in** — Authenticate with your GitHub account
-- 🔗 **Repository connection** — Connect any public repo; we auto-create the webhook
-- ⚡ **Configurable rules** — Match on event type, keywords, author, action → trigger labels, comments, Slack, or AI
-- 🤖 **AI triage** — Gemini 2.0 Flash classifies priority, suggests labels, summarizes issues/PRs
-- 📣 **Slack notifications** — Rich Block Kit messages with AI summary and GitHub link
-- 📊 **Live dashboard** — Real-time event log, bot actions, AI analysis results
-- 🛡️ **Security-first** — HMAC-SHA256 per-repo webhook verification, encrypted token storage, idempotent processing
+- 🔐 **GitHub OAuth sign-in** — authenticate and connect any repo you own
+- ⚡ **Configurable rules engine** — match on event type, keywords in title/body, or author
+- 🤖 **AI triage via Gemini 2.0 Flash** — auto-classify priority (critical/high/medium/low), suggest labels, generate summaries
+- 📣 **Slack notifications** — rich Block Kit messages with priority color coding, AI summary, and "View on GitHub" button
+- 🛡️ **Security** — HMAC-SHA256 webhook signature verification, encrypted token storage, idempotent event processing
+- 📊 **Live dashboard** — real-time event log (polls every 5s) showing event type, repo, author, AI priority, bot actions taken
+- 🔁 **Multi-event support** — handles `issues`, `pull_request`, `push`, `issue_comment`, `ping`
 
 ---
 
-## Architecture
+## Live Demo
 
-```
-GitHub Repo → Webhook (HMAC signed) → Next.js API (/api/webhook/github)
-                                           │
-                               Verify sig → Dedup → Store
-                                           │
-                                     Rules Engine
-                                     ├── GitHub API (add label, comment)
-                                     ├── Gemini 2.0 Flash (AI triage)
-                                     └── Slack Webhook (notification)
-                                           │
-                                      Supabase DB
-                                           │
-                                    Dashboard (live poll)
-```
-
----
-
-## Local Development
-
-### 1. Clone and install
-
-```bash
-git clone https://github.com/YOUR_USERNAME/github-bot.git
-cd github-bot
-npm install
-```
-
-### 2. Set up external services
-
-#### Supabase (database)
-1. Go to [supabase.com](https://supabase.com) → New project (free, no card)
-2. Once created, go to **SQL Editor** → **New query**
-3. Copy/paste the contents of [`supabase/schema.sql`](./supabase/schema.sql) and run it
-4. Go to **Settings → API** → copy `Project URL` and `service_role` key
-
-#### GitHub OAuth App
-1. Go to [github.com/settings/applications/new](https://github.com/settings/applications/new)
-2. Fill in:
-   - **Application name**: `GitBot (local dev)`
-   - **Homepage URL**: `http://localhost:3000`
-   - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
-3. Click **Register application**
-4. Copy the **Client ID** and generate a **Client secret**
-
-#### Slack Incoming Webhook
-**Option A — New workspace:**
-1. Go to [slack.com/create](https://slack.com/create) → create a free workspace
-2. Skip the "add teammates" step
-
-**Option B — Existing workspace:**
-1. Open your workspace in a browser
-
-**Both options continue here:**
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
-2. App Name: `GitBot`, pick your workspace
-3. In the left menu: **Incoming Webhooks** → toggle **ON**
-4. Click **Add New Webhook to Workspace** → pick a channel → **Allow**
-5. Copy the Webhook URL (`https://hooks.slack.com/services/...`)
-
-#### Google Gemini API (AI triage)
-1. Go to [aistudio.google.com](https://aistudio.google.com) → **Get API key**
-2. Create a new API key (no billing, no card needed)
-3. Copy the key
-
-### 3. Configure environment
-
-```bash
-cp .env.example .env.local
-```
-
-Edit `.env.local` and fill in all values:
-
-```bash
-# Generate these:
-NEXTAUTH_SECRET=$(openssl rand -base64 32)
-ENCRYPTION_KEY=$(openssl rand -hex 32)
-
-# From GitHub OAuth App:
-AUTH_GITHUB_ID=your_client_id
-AUTH_GITHUB_SECRET=your_client_secret
-
-# From Supabase:
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-# From Slack:
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-
-# From Google AI Studio:
-GEMINI_API_KEY=your_key
-
-# For local dev:
-NEXTAUTH_URL=http://localhost:3000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-> ⚠️ **Note:** GitHub webhooks cannot point to `localhost`. For local testing of webhooks, use [ngrok](https://ngrok.com) or [localtunnel](https://github.com/localtunnel/localtunnel) to expose your local server.
->
-> ```bash
-> npx localtunnel --port 3000
-> # Then set NEXT_PUBLIC_APP_URL and NEXTAUTH_URL to the tunnel URL
-> ```
-
-### 4. Run locally
-
-```bash
-npm run dev
-```
-
-Visit [http://localhost:3000](http://localhost:3000).
-
----
-
-## Deployment (Vercel)
-
-### 1. Deploy to Vercel
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-```
-
-Or connect your GitHub repo at [vercel.com/new](https://vercel.com/new) for automatic deployments on push.
-
-### 2. Set environment variables
-
-In the Vercel dashboard → your project → **Settings → Environment Variables**, add all variables from `.env.example`.
-
-Use **Production** values:
-- `NEXTAUTH_URL`: `https://github-bot-automation-np17.vercel.app`
-- `NEXT_PUBLIC_APP_URL`: `https://github-bot-automation-np17.vercel.app`
-
-### 3. Update GitHub OAuth App
-
-Go back to your GitHub OAuth App settings and update the callback URL:
-- **Authorization callback URL**: `https://github-bot-automation-np17.vercel.app/api/auth/callback/github`
-
-### 4. Run the database schema
-
-If you haven't already, run `supabase/schema.sql` in your Supabase SQL Editor.
-
----
-
-## How to test it
-
-1. **Sign in** with your GitHub account at the deployed URL
-2. **Connect a repository** — pick any public repo you own (click "Connect a repository" in the sidebar)
-3. **Verify the webhook** — go to your repo on GitHub → Settings → Webhooks → you should see a new webhook pointing to your app
-4. **Trigger an event**:
-   - Open an issue with "bug" in the title → bot adds `bug` label + posts comment + Slack alert + AI triage
-   - Open a PR → bot posts welcome comment + Slack alert
-   - Push to the repo → Slack notification
-5. **Check the dashboard** → event appears in the log within seconds
-
-### Testing security
-
-- **Invalid signature test**: Send a request to `/api/webhook/github` without a valid `X-Hub-Signature-256` header → should get `403 Forbidden`
-- **Duplicate delivery test**: GitHub's "Redeliver" button on a webhook delivery → event is skipped (not processed twice)
-- **Unauthenticated dashboard**: Try visiting `/dashboard` without logging in → redirects to `/`
-
----
-
-## Environment Variables Reference
-
-| Variable | Required | Description |
-|---|---|---|
-| `NEXTAUTH_SECRET` | ✅ | Random secret for NextAuth session encryption |
-| `NEXTAUTH_URL` | ✅ | Your app's public URL |
-| `NEXT_PUBLIC_APP_URL` | ✅ | Same as NEXTAUTH_URL (used for webhook URL) |
-| `AUTH_GITHUB_ID` | ✅ | GitHub OAuth App Client ID |
-| `AUTH_GITHUB_SECRET` | ✅ | GitHub OAuth App Client Secret |
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-side only) |
-| `ENCRYPTION_KEY` | ✅ | 32-byte hex key for AES-256-GCM token encryption |
-| `SLACK_WEBHOOK_URL` | ✅ | Slack Incoming Webhook URL |
-| `GEMINI_API_KEY` | ⚪ | Google AI Studio key (optional — enables AI triage) |
+| Action | Result |
+|--------|--------|
+| Open issue: `bug: login not working` | Bot adds `bug` label + posts comment + Slack alert |
+| Open issue: `security: data exposed` | Bot adds `security` label + posts security-specific comment + Slack alert |
+| Open issue: `feature: add dark mode` | Bot adds `enhancement` label + posts comment |
+| Push code to main | `PUSH` event logged in dashboard |
+| Open a Pull Request | `PULL_REQUEST` event logged + Slack alert |
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
-| Framework | Next.js 15 (App Router) |
-| Language | TypeScript |
-| Hosting | Vercel (Hobby free tier) |
-| Database | Supabase (free Postgres) |
-| Auth | NextAuth.js v5 |
-| GitHub API | Octokit REST |
+|-------|-----------|
+| Frontend | Next.js 15, React 19, Tailwind CSS, shadcn/ui |
+| Backend | Next.js API Routes (Edge-compatible) |
+| Database | Supabase (Postgres) |
+| Auth | NextAuth.js v5 with GitHub OAuth |
 | AI | Google Gemini 2.0 Flash |
-| Notifications | Slack Incoming Webhooks |
-| Encryption | AES-256-GCM (Node.js crypto) |
+| Notifications | Slack Incoming Webhooks (Block Kit) |
+| Deployment | Vercel |
+
+---
+
+## Architecture
+
+```
+GitHub Repo Activity
+       │
+       ▼
+Webhook POST → /api/webhook/github
+       │
+       ├── Verify HMAC-SHA256 signature
+       ├── Check idempotency (delivery ID)
+       ├── Run rules engine (keyword/event matching)
+       │
+       ├── GitHub API → add label
+       ├── GitHub API → post comment
+       ├── Gemini AI → analyze priority + suggest label
+       └── Slack → send Block Kit notification
+       │
+       ▼
+Supabase (events table) ← Dashboard polls every 5s
+```
+
+---
+
+## Database Schema
+
+```sql
+-- Connected repositories per user
+repositories (
+  id, user_id, repo_full_name, installation_token,
+  webhook_id, webhook_secret, created_at
+)
+
+-- Every received webhook event
+events (
+  id, repo_id, delivery_id, event_type, action,
+  sender_login, title, ref, payload,
+  ai_summary, ai_priority, ai_suggested_label, ai_reasoning,
+  bot_actions[], slack_notified, processed_at, created_at
+)
+
+-- User-defined automation rules
+rules (
+  id, user_id, repo_id, name, event_type,
+  keyword, action_type, action_value,
+  is_active, created_at
+)
+```
+
+---
+
+## Local Setup
+
+### Prerequisites
+- Node.js 18+
+- A GitHub OAuth App
+- A Supabase project
+- (Optional) Slack Incoming Webhook URL
+- (Optional) Google Gemini API key
+
+### Steps
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/AaravKataria4542/github-bot-automation.git
+cd github-bot-automation
+
+# 2. Install dependencies
+npm install
+
+# 3. Copy env file and fill in values
+cp .env.example .env.local
+
+# 4. Run the database schema
+# Go to Supabase → SQL Editor → paste contents of supabase/schema.sql
+
+# 5. Start the dev server
+npm run dev
+```
+
+Open http://localhost:3000
+
+> **Note:** GitHub webhooks cannot point at localhost. Use [ngrok](https://ngrok.com) or [smee.io](https://smee.io) to tunnel your local server for webhook testing.
+
+---
+
+## Environment Variables
+
+See `.env.example` for all required variables. Key ones:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXTAUTH_SECRET` | Random secret for NextAuth session encryption |
+| `AUTH_GITHUB_ID` | GitHub OAuth App Client ID |
+| `AUTH_GITHUB_SECRET` | GitHub OAuth App Client Secret |
+| `NEXTAUTH_URL` | Your deployed app URL |
+| `NEXT_PUBLIC_APP_URL` | Your deployed app URL (public) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side only) |
+| `ENCRYPTION_KEY` | 32-byte hex key for encrypting GitHub tokens |
+| `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL (optional) |
+| `GEMINI_API_KEY` | Google Gemini API key (optional, enables AI triage) |
+
+---
+
+## Deployment
+
+Deployed on **Vercel** connected to this GitHub repo. Every push to `main` triggers an automatic redeploy.
+
+### GitHub OAuth App settings
+- Homepage URL: `https://github-bot-automation-np17.vercel.app`
+- Authorization callback URL: `https://github-bot-automation-np17.vercel.app/api/auth/callback/github`
 
 ---
 
 ## Security
 
-- **Webhook verification**: Every request verified with HMAC-SHA256 using per-repo secrets. Timing-safe comparison via `crypto.timingSafeEqual`.
-- **Idempotency**: `X-GitHub-Delivery` UUID used as a database primary key — duplicate deliveries are silently skipped.
-- **Token encryption**: GitHub OAuth tokens and webhook secrets are AES-256-GCM encrypted before storage.
-- **Auth protection**: All dashboard routes protected by NextAuth middleware.
-- **No secrets in code**: All secrets via environment variables. `.env.local` in `.gitignore`.
+- **Webhook verification** — every incoming webhook is verified using HMAC-SHA256 against the per-repo secret
+- **Idempotency** — delivery IDs are stored; duplicate webhook deliveries are ignored
+- **Token encryption** — GitHub OAuth tokens are AES-256 encrypted before storing in the database
+- **No secrets in client** — all sensitive operations happen server-side only
+- **RLS** — Supabase Row Level Security ensures users only see their own data
 
 ---
 
-## Default Automation Rules
+## Testing the Bot
 
-When you connect a repository, these 6 rules are automatically created:
+1. Sign in at https://github-bot-automation-np17.vercel.app
+2. Click **"+ Connect a repository"** and select any repo you own
+3. Open an issue with "bug" in the title on that repo
+4. Watch the dashboard Event Log — event appears within 5 seconds
+5. Check your repo — `bug` label added and bot comment posted
+6. Check Slack — notification received in your channel
 
-| Rule | Trigger | Actions |
-|---|---|---|
-| 🐛 Bug Auto-Label + AI Triage | Issue opened with "bug" in title | Add `bug` label, post comment, Slack, AI analyze |
-| ✨ Feature Request Label | Issue opened with "feature" in title | Add `enhancement` label, Slack, AI analyze |
-| 🚨 Critical Issue Alert | Issue opened with "critical" in title | Add `priority: critical` label, post comment, Slack, AI analyze |
-| 🔐 Security Vulnerability Alert | Issue opened with "security" in title | Add `security` label, post comment, Slack, AI analyze |
-| 🔀 New PR Welcome | PR opened | Post welcome comment, Slack |
-| 📦 Push Notification | Any push | Slack notification |
+---
 
-All rules can be edited, disabled, or deleted from the dashboard.
+## AI Notes
 
+See [AI_NOTES.md](./AI_NOTES.md) for details on AI tool usage, key decisions, hardest bugs, and what I'd improve.
+
+## Agent Context
+
+See [AGENTS.md](./AGENTS.md) and [CLAUDE.md](./CLAUDE.md) for the AI context files used during development.
