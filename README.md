@@ -1,10 +1,10 @@
 # GitBot — GitHub Automation Bot
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://github-bot-automation.vercel.app)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://github-bot-automation-np17.vercel.app)
 
 An event-driven GitHub automation bot that reacts to repository activity — labeling issues, posting comments, sending Slack alerts, and AI-triaging with Gemini 2.0 Flash — all driven by configurable rules.
 
-**Live URL:** `https://github-bot-automation.vercel.app`
+**Live URL:** `https://github-bot-automation-np17.vercel.app`
 
 ---
 
@@ -154,13 +154,13 @@ Or connect your GitHub repo at [vercel.com/new](https://vercel.com/new) for auto
 In the Vercel dashboard → your project → **Settings → Environment Variables**, add all variables from `.env.example`.
 
 Use **Production** values:
-- `NEXTAUTH_URL`: `https://github-bot-automation.vercel.app`
-- `NEXT_PUBLIC_APP_URL`: `https://github-bot-automation.vercel.app`
+- `NEXTAUTH_URL`: `https://github-bot-automation-np17.vercel.app`
+- `NEXT_PUBLIC_APP_URL`: `https://github-bot-automation-np17.vercel.app`
 
 ### 3. Update GitHub OAuth App
 
 Go back to your GitHub OAuth App settings and update the callback URL:
-- **Authorization callback URL**: `https://github-bot-automation.vercel.app/api/auth/callback/github`
+- **Authorization callback URL**: `https://github-bot-automation-np17.vercel.app/api/auth/callback/github`
 
 ### 4. Run the database schema
 
@@ -244,3 +244,4 @@ When you connect a repository, these 6 rules are automatically created:
 | 📦 Push Notification | Any push | Slack notification |
 
 All rules can be edited, disabled, or deleted from the dashboard.
+
